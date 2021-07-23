@@ -1,75 +1,77 @@
-# Web/Secure --- Writeup
+# redpwn2021 Writeups
 
-Here's the table of contents:
+## Web/Secure
+This was a relatively simple challenge. The javscript in the page simply encodes input into base64 and then sends the query to the server. By manually sending unencoded text, an SQLI attack is possible, thus giving us the flag.
 
-1. TOC
-{:toc}
+First, a quick look at the code executed when the form is submitted.
+   ```
+   <script>
+    (async() => {
+      await new Promise((resolve) => window.addEventListener('load', resolve));
+      document.querySelector('form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const form = document.createElement('form');
+        form.setAttribute('method', 'POST');
+        form.setAttribute('action', '/login');
 
-## Basic setup
+        const username = document.createElement('input');
+        username.setAttribute('name', 'username');
+        username.setAttribute('value',
+          btoa(document.querySelector('#username').value)
+        );
 
-Jekyll requires blog post files to be named according to the following format:
+        const password = document.createElement('input');
+        password.setAttribute('name', 'password');
+        password.setAttribute('value',
+          btoa(document.querySelector('#password').value)
+        );
 
-`YEAR-MONTH-DAY-filename.md`
+        form.appendChild(username);
+        form.appendChild(password);
 
-Where `YEAR` is a four-digit number, `MONTH` and `DAY` are both two-digit numbers, and `filename` is whatever file name you choose, to remind yourself what this post is about. `.md` is the file extension for markdown files.
+        form.setAttribute('style', 'display: none');
 
-The first line of the file should start with a single hash character, then a space, then your title. This is how you create a "*level 1 heading*" in markdown. Then you can create level 2, 3, etc headings as you wish but repeating the hash character, such as you see in the line `## File names` above.
-
-## Basic formatting
-
-You can use *italics*, **bold**, `code font text`, and create [links](https://www.markdownguide.org/cheat-sheet/). Here's a footnote [^1]. Here's a horizontal rule:
-
----
-
-## Lists
-
-Here's a list:
-
-- item 1
-- item 2
-
-And a numbered list:
-
-1. item 1
-1. item 2
-
-## Boxes and stuff
-
-> This is a quotation
-
-{% include alert.html text="You can include alert boxes" %}
-
-...and...
-
-{% include info.html text="You can include info boxes" %}
-
-## Images
-
-![](/images/logo.png "fast.ai's logo")
-
-## Code
-
-General preformatted text:
-
-    # Do a thing
-    do_thing()
-
-Python code and output:
-
-```python
-# Prints '2'
-print(1+1)
+        document.body.appendChild(form);
+        form.submit();
+      });
+    })();
+  </script>
+   ```
+Make note the btoa function! It's used to encode a string as base64. This function is called on both the username and password. We can observe this by trying to log in with the username "admin" and the password "password" as seen below.
+![](/images/Login.png)
+![](/images/LoginFail.png)
+Now, lets look at the server's code that's relevant to us:
 ```
+app.post('/login', (req, res) => {
+  if (!req.body.username || !req.body.password)
+    return res.redirect('/?message=Username and password required!');
 
-    2
+  const query = `SELECT id FROM users WHERE
+          username = '${req.body.username}' AND
+          password = '${req.body.password}';`;
+  try {
+    const id = db.prepare(query).get()?.id;
 
-## Tables
+    if (id) return res.redirect(`/?message=${process.env.FLAG}`);
+    else throw new Error('Incorrect login');
+  } catch {
+    return res.redirect(
+      `/?message=Incorrect username or password. Query: ${query}`
+    );
+  }
+});
+```
+Specifically, this bit:
+```
+const query = `SELECT id FROM users WHERE
+          username = '${req.body.username}' AND
+          password = '${req.body.password}';`;
+```
+This bit of code runs an SQL query like so:
+    SELECT id FROM users WHERE '{our username input}' AND '{our password input}';
 
-| Column 1 | Column 2 |
-|-|-|
-| A thing | Another thing |
-
-## Footnotes
-
-[^1]: This is the footnote.
-
+By using our knowledge of basic SQL, it's clear that inputting something like " 'or 1==1-- " into the password field would make the query return true.
+Let's test that using Burpsuite to modify the request:
+![](/images/modrequest.png)
+![](/images/sucess.png)
+Success! 
