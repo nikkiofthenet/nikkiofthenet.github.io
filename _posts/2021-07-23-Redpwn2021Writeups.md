@@ -37,9 +37,8 @@ First, a quick look at the code executed when the form is submitted.
     })();
   </script>
    ```
-Make note the btoa function! It's used to encode a string as base64. This function is called on both the username and password. We can observe this by trying to log in with the username "admin" and the password "password" as seen below.
-![](/images/Login.png)
-![](/images/LoginFail.png)
+Make note the ```btoa``` function! It's used to encode a string as base64. This function is called on both the username and password. We can observe this by trying to log in with the username "admin" and the password "password" as seen below.
+![](/images/Capture2.png)
 Now, lets look at the server's code that's relevant to us:
 ```
 app.post('/login', (req, res) => {
@@ -72,6 +71,6 @@ This bit of code runs an SQL query like so:
 
 By using our knowledge of basic SQL, it's clear that inputting something like " 'or 1==1-- " into the password field would make the query return true.
 Let's test that using Burpsuite to modify the request:
-![](/images/modrequest.png)
-![](/images/sucess.png)
+![](/images/Capture4.png)
+![](/images/Capture5.png)
 Success! 
