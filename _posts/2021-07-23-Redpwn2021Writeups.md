@@ -1,4 +1,4 @@
-# redpwn2021(Web-Secure) --- Writeup
+# Web/Secure --- Writeup
 
 Here's the table of contents:
 
